@@ -5,20 +5,30 @@ const height = window.innerHeight;
 const maxWH = Math.max(width, height);
 const cellSize = 50;
 
-let livingCells = new Set();
+let livingCells = new Set([
+	"1,0",
+	"2,1",
+	"2,2",
+	"1,2",
+	"0,2"
+]);
+
 let nextGenerationLivingCells = new Set();
 
 canvas.width = width;
 canvas.height = height;
 
 function drawGridLines() {
-    const columns = Math.ceil(canvas.width / cellSize);
-    const rows = Math.ceil(canvas.height / cellSize);
-    for (let i = 0; i < rows; i++) {
-        for (let j = 0; j < columns; j++) {
-            drawGridCell(i, j)
-        }
-    }
+	const columns = Math.ceil(canvas.width / cellSize);
+	const rows = Math.ceil(canvas.height / cellSize);
+	for (let i = 0; i < rows; i++) {
+		for (let j = 0; j < columns; j++) {
+			drawGridCell(i, j)
+		}
+	}
+	for (let cell of livingCells) {
+		initCell(...decodeCell(cell))
+	}
 }
 
 function drawGridCell(row, column) {
