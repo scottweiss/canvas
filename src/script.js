@@ -33,7 +33,7 @@ function initCGOL() {
 		}
 	}
 	for (let cell of livingCells) {
-		initCell(...decodeCell(cell))
+		initCell(cell)
 	}
 	startAnimating(5);
 }
@@ -56,14 +56,14 @@ function drawCell(row, column, dead) {
 	ctx.strokeRect(x, y, cellSize, cellSize);
 }
 
-function initCell(x, y) {
-	livingCells.add(encodeCell(x, y))
-	drawCell(x, y);
+function initCell(cell) {
+	livingCells.add(cell)
+	drawCell(...decodeCell(cell));
 }
 
-function killCell(x, y) {
-	livingCells.delete(encodeCell(x, y));
-	drawCell(x, y, true);
+function killCell(cell) {
+	livingCells.delete(cell);
+	drawCell(...decodeCell(cell), true);
 }
 
 function getLivingNeighborCount(x, y, alive) {
@@ -111,18 +111,18 @@ function shouldCellLive(cell, alive){
 }
 
 function encodeCell(x, y) {
-	return `${x},${y}`;
+	return `${x},${y}`.trim();
 }
 
 function decodeCell(cellString) {
 	return cellString.split(',').map(Number);
 }
 
-function toggleCell(x, y) {
-	if (livingCells.size && livingCells.has(encodeCell(x, y))) {
-		killCell(x, y);
+function toggleCell(cell) {
+	if (livingCells.size && livingCells.has(cell)) {
+		killCell(cell);
 	} else {
-		initCell(x, y);
+		initCell(cell);
 	}
 }
 
@@ -130,7 +130,7 @@ function getCellFromClickEvent(event) {
 	const x = Math.floor(event.clientX / cellSize);
 	const y = Math.floor(event.clientY / cellSize);
 
-	return [x, y];
+	return encodeCell(x, y);
 }
 
 
@@ -150,10 +150,10 @@ function update() {
 
 	if (livingCells && nextGenerationLivingCells) {
 		livingCells.forEach((cell) => {
-			killCell(...decodeCell(cell));
+			killCell(cell);
 		})
 		nextGenerationLivingCells.forEach((cell) => {
-			initCell(...decodeCell(cell));
+			initCell(cell);
 		})
 	}
 
@@ -194,7 +194,7 @@ function animate(newtime) {
 
 
 document.addEventListener("click", function (event) {
-	toggleCell(...getCellFromClickEvent(event))
+	toggleCell(getCellFromClickEvent(event))
 }, false);
 
 document.addEventListener("keypress", function (event) {
