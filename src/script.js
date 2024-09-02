@@ -3,7 +3,7 @@ const ctx = canvas.getContext("2d");
 const width = window.innerWidth;
 const height = window.innerHeight;
 const maxWH = Math.max(width, height);
-const cellSize = 50;
+let cellSize = 50;
 
 
 // Animation
@@ -28,7 +28,7 @@ function initCGOL() {
 	const columns = Math.ceil(canvas.width / cellSize);
 	const rows = Math.ceil(canvas.height / cellSize);
 	for (let i = 0; i < columns; i++) {
-		for (let j = 0; j < rows; j++) {	
+		for (let j = 0; j < rows; j++) {
 			drawCell(i, j, !livingCells.has(encodeCell(i, j)));
 		}
 	}
@@ -38,7 +38,7 @@ function initCGOL() {
 function drawCell(row, column, dead) {
 	const x = row * cellSize;
 	const y = column * cellSize;
-	
+
 	ctx.strokeStyle = `#000`;
 	ctx.fillStyle = dead ? `#fff` : `#000`;
 
@@ -56,7 +56,7 @@ function killCell(cell) {
 	drawCell(...decodeCell(cell), true);
 }
 
-function getLivingNeighborCount(x, y, alive) {
+function getLivingNeighborCount(x, y, skip) {
 	let livingNeighborCount = 0;
 
 	for (let x1 = x - 1; x1 <= x + 1; x1++) {
@@ -67,13 +67,12 @@ function getLivingNeighborCount(x, y, alive) {
 			}
 			if (livingCells && livingCells.has(encodeCell(x1, y1))) {
 				livingNeighborCount++;
-			} else if (!alive) {
+			} else if (!skip) {
 				// Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
-				const deadCellNeighborCount = getLivingNeighborCount(x1, y1, true);
-				if (deadCellNeighborCount === 3) {
+				if (shouldCellLive(encodeCell(x1, y1))) {
 					nextGenerationLivingCells.add(encodeCell(x1, y1));
 				}
-				
+
 			}
 		}
 	}
@@ -81,18 +80,21 @@ function getLivingNeighborCount(x, y, alive) {
 	return livingNeighborCount;
 }
 
-function shouldCellLive(cell, alive){
-	const livingNeighborCount = getLivingNeighborCount(cell, alive);
-	if (livingCells.has(cell)){
-			// Any live cell with two or three live neighbours lives on to the next generation.
-			if (livingNeighborCount === 2 || livingNeighborCount === 3){
-					return true;
-			}
+function shouldCellLive(cell) {
+	if (livingCells == null) {
+		return;
+	}
+	const livingNeighborCount = getLivingNeighborCount(...decodeCell(cell), true);
+	if (livingCells.has(cell)) {
+		// Any live cell with two or three live neighbours lives on to the next generation.
+		if (livingNeighborCount === 2 || livingNeighborCount === 3) {
+			return true;
+		}
 	} else {
-			// Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
-			if (livingNeighborCount === 3){
-					return true;
-			}
+		// Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
+		if (livingNeighborCount === 3) {
+			return true;
+		}
 	}
 
 	// Any live cell with fewer than two live neighbours dies, as if by underpopulation.
@@ -182,7 +184,6 @@ function animate(newtime) {
 	}
 }
 
-
 document.addEventListener("click", function (event) {
 	toggleCell(getCellFromClickEvent(event))
 }, false);
@@ -193,3 +194,16 @@ document.addEventListener("keypress", function (event) {
 		requestAnimationFrame(animate);
 	}
 }, false);
+
+window.addEventListener("resize", function (event) {
+	canvas.width = window.innerWidth;
+	canvas.height = window.innerHeight;
+	initCGOL();
+}, false);
+
+document.addEventListener("wheel", function (event) {
+	cellSize += event.deltaY * -0.01;
+	cellSize = Math.max(cellSize, 10)
+
+	initCGOL();
+}, false)
