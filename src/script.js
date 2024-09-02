@@ -27,28 +27,18 @@ canvas.height = height;
 function initCGOL() {
 	const columns = Math.ceil(canvas.width / cellSize);
 	const rows = Math.ceil(canvas.height / cellSize);
-	for (let i = 0; i < rows; i++) {
-		for (let j = 0; j < columns; j++) {
-			drawGridCell(i, j)
+	for (let i = 0; i < columns; i++) {
+		for (let j = 0; j < rows; j++) {	
+			drawCell(i, j, !livingCells.has(encodeCell(i, j)));
 		}
 	}
-	for (let cell of livingCells) {
-		initCell(cell)
-	}
 	startAnimating(5);
-}
-
-function drawGridCell(row, column) {
-	const x = column * cellSize;
-	const y = row * cellSize;
-	ctx.fillStyle = `#000`;
-
-	ctx.strokeRect(x, y, cellSize, cellSize);
 }
 
 function drawCell(row, column, dead) {
 	const x = row * cellSize;
 	const y = column * cellSize;
+	
 	ctx.strokeStyle = `#000`;
 	ctx.fillStyle = dead ? `#fff` : `#000`;
 
