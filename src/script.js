@@ -35,12 +35,16 @@ function initCGOL() {
 	startAnimating(5);
 }
 
-function drawCell(row, column, dead) {
+function drawCell(row, column, dead, highlight = false) {
 	const x = row * cellSize;
 	const y = column * cellSize;
 
 	ctx.strokeStyle = `#000`;
 	ctx.fillStyle = dead ? `#fff` : `#000`;
+
+	if (highlight) {
+		ctx.fillStyle = `#ff00ff`; // Highlight color for evaluation
+	}
 
 	ctx.fillRect(x, y, cellSize, cellSize);
 	ctx.strokeRect(x, y, cellSize, cellSize);
@@ -85,6 +89,11 @@ function shouldCellLive(cell) {
 		return;
 	}
 	const livingNeighborCount = getLivingNeighborCount(...decodeCell(cell), true);
+	
+	// Visual feedback: Highlight the cell being evaluated
+	const [r, c] = decodeCell(cell);
+	drawCell(r, c, livingCells.has(cell), true);
+
 	if (livingCells.has(cell)) {
 		// Any live cell with two or three live neighbours lives on to the next generation.
 		if (livingNeighborCount === 2 || livingNeighborCount === 3) {
