@@ -56,28 +56,36 @@ function killCell(cell) {
 	drawCell(...decodeCell(cell), true);
 }
 
+// The 8 surrounding cells; the cell itself is intentionally excluded.
+const NEIGHBOR_OFFSETS = [
+	[-1, -1], [-1, 0], [-1, 1],
+	[0, -1], [0, 1],
+	[1, -1], [1, 0], [1, 1]
+];
+
 function getLivingNeighborCount(x, y, skip) {
 	let livingNeighborCount = 0;
 
-	for (let x1 = x - 1; x1 <= x + 1; x1++) {
-		for (let y1 = y - 1; y1 <= y + 1; y1++) {
-			// dont count ourselves in the calculation!
-			if (x1 === x && y1 === y) {
-				continue;
-			}
-			if (livingCells && livingCells.has(encodeCell(x1, y1))) {
-				livingNeighborCount++;
-			} else if (!skip) {
-				// Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
-				if (shouldCellLive(encodeCell(x1, y1))) {
-					nextGenerationLivingCells.add(encodeCell(x1, y1));
-				}
+	for (const [dx, dy] of NEIGHBOR_OFFSETS) {
+		const x1 = x + dx;
+		const y1 = y + dy;
+		const cell = encodeCell(x1, y1);
 
-			}
+		if (livingCells && livingCells.has(cell)) {
+			livingNeighborCount++;
+		} else if (!skip) {
+			considerCellForReproduction(cell);
 		}
 	}
 
 	return livingNeighborCount;
+}
+
+// Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
+function considerCellForReproduction(cell) {
+	if (shouldCellLive(cell)) {
+		nextGenerationLivingCells.add(cell);
+	}
 }
 
 function shouldCellLive(cell) {
