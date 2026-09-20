@@ -3,14 +3,30 @@ const ctx = canvas.getContext("2d");
 const width = window.innerWidth;
 const height = window.innerHeight;
 const maxWH = Math.max(width, height);
+
+/**
+ * Size (in pixels) of each simulation cell on the canvas.
+ * Adjusted by the mouse wheel; re-initialized on window resize.
+ * @type {number}
+ */
 let cellSize = 50;
 
 
 // Animation
 var stop = true;
+
+/**
+ * Count of simulation frames that have been rendered.
+ * @type {number}
+ */
 var frameCount = 0;
 var fps, fpsInterval, startTime, now, then, elapsed;
 
+/**
+ * Set of live cell coordinates (strings in "x,y" format) for the
+ * current generation of the simulation.
+ * @type {Set<string>}
+ */
 let livingCells = new Set([
 	"1,0",
 	"2,1",
