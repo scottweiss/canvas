@@ -5,7 +5,10 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "npx servor src/ --browse --reload"
+    "dev": "servor src/ --browse --reload"
+  },
+  "devDependencies": {
+    "servor": "^4.0.0"
   },
   "author": "",
   "license": "ISC"
