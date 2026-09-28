@@ -1,225 +1,136 @@
+import { createSimulation, encodeCell } from "./simulation.mjs";
+
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 const width = window.innerWidth;
 const height = window.innerHeight;
-const maxWH = Math.max(width, height);
 let cellSize = 50;
 
+const pauseBtn = document.getElementById("pause-resume-btn");
 
-// Animation
-var stop = true;
-var frameCount = 0;
-var fps, fpsInterval, startTime, now, then, elapsed;
-
-let livingCells = new Set([
-	"1,0",
-	"2,1",
-	"2,2",
-	"1,2",
-	"0,2"
-]);
-
-let nextGenerationLivingCells = new Set();
+// Preserve the existing initial board
+const sim = createSimulation(new Set([
+  "1,0",
+  "2,1",
+  "2,2",
+  "1,2",
+  "0,2"
+]));
 
 canvas.width = width;
 canvas.height = height;
 
-function initCGOL() {
-	const columns = Math.ceil(canvas.width / cellSize);
-	const rows = Math.ceil(canvas.height / cellSize);
-	for (let i = 0; i < columns; i++) {
-		for (let j = 0; j < rows; j++) {
-			drawCell(i, j, !livingCells.has(encodeCell(i, j)));
-		}
-	}
-	startAnimating(5);
-}
+// --- Rendering ---
 
 function drawCell(row, column, dead) {
-	const x = row * cellSize;
-	const y = column * cellSize;
+  const x = row * cellSize;
+  const y = column * cellSize;
 
-	ctx.strokeStyle = `#000`;
-	ctx.fillStyle = dead ? `#fff` : `#000`;
+  ctx.strokeStyle = `#000`;
+  ctx.fillStyle = dead ? `#fff` : `#000`;
 
-	ctx.fillRect(x, y, cellSize, cellSize);
-	ctx.strokeRect(x, y, cellSize, cellSize);
+  ctx.fillRect(x, y, cellSize, cellSize);
+  ctx.strokeRect(x, y, cellSize, cellSize);
 }
 
-function initCell(cell) {
-	livingCells.add(cell)
-	drawCell(...decodeCell(cell));
+function renderBoard() {
+  const columns = Math.ceil(canvas.width / cellSize);
+  const rows = Math.ceil(canvas.height / cellSize);
+  for (let i = 0; i < columns; i++) {
+    for (let j = 0; j < rows; j++) {
+      drawCell(i, j, !sim.isAlive(encodeCell(i, j)));
+    }
+  }
 }
 
-function killCell(cell) {
-	livingCells.delete(cell);
-	drawCell(...decodeCell(cell), true);
+// --- Button state ---
+
+function updateButtonLabel() {
+  pauseBtn.textContent = sim.getLabel();
+  pauseBtn.setAttribute("aria-pressed", String(!sim.isPausedState()));
 }
 
-// The eight surrounding neighbour offsets, excluding the cell itself.
-const NEIGHBOR_OFFSETS = [];
-for (let dx = -1; dx <= 1; dx++) {
-	for (let dy = -1; dy <= 1; dy++) {
-		if (dx !== 0 || dy !== 0) {
-			NEIGHBOR_OFFSETS.push([dx, dy]);
-		}
-	}
+function togglePause() {
+  sim.togglePause();
+  updateButtonLabel();
 }
 
-function isCellAlive(cell) {
-	return livingCells != null && livingCells.has(cell);
+// --- Single persistent animation loop (exactly one, regardless of toggles/resize/zoom) ---
+
+const FPS = 5;
+const fpsInterval = 1000 / FPS;
+let lastFrameTime = 0;
+
+function animate(timestamp) {
+  requestAnimationFrame(animate);
+
+  if (sim.isPausedState()) {
+    lastFrameTime = timestamp;
+    return;
+  }
+
+  if (timestamp - lastFrameTime >= fpsInterval) {
+    lastFrameTime = timestamp - ((timestamp - lastFrameTime) % fpsInterval);
+    sim.step();
+    renderBoard();
+  }
 }
 
-function considerDeadCellForBirth(cell) {
-	if (isCellAlive(cell)) {
-		return false;
-	}
-	// Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
-	if (shouldCellLive(cell)) {
-		nextGenerationLivingCells.add(cell);
-	}
-	return true;
-}
+// --- Initialization ---
 
-function getLivingNeighborCount(x, y, skip) {
-	let livingNeighborCount = 0;
+renderBoard();
+updateButtonLabel();
+requestAnimationFrame(animate);
 
-	for (const [dx, dy] of NEIGHBOR_OFFSETS) {
-		const cell = encodeCell(x + dx, y + dy);
-		if (isCellAlive(cell)) {
-			livingNeighborCount++;
-		} else if (!skip) {
-			considerDeadCellForBirth(cell);
-		}
-	}
+// --- Event handlers ---
 
-	return livingNeighborCount;
-}
-
-function shouldCellLive(cell) {
-	if (livingCells == null) {
-		return;
-	}
-	const livingNeighborCount = getLivingNeighborCount(...decodeCell(cell), true);
-	if (livingCells.has(cell)) {
-		// Any live cell with two or three live neighbours lives on to the next generation.
-		if (livingNeighborCount === 2 || livingNeighborCount === 3) {
-			return true;
-		}
-	} else {
-		// Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
-		if (livingNeighborCount === 3) {
-			return true;
-		}
-	}
-
-	// Any live cell with fewer than two live neighbours dies, as if by underpopulation.
-	// Any live cell with more than three live neighbours dies, as if by overpopulation.
-	return false;
-}
-
-function encodeCell(x, y) {
-	return `${x},${y}`.trim();
-}
-
-function decodeCell(cellString) {
-	return cellString.split(',').map(Number);
-}
-
-function toggleCell(cell) {
-	if (livingCells.size && livingCells.has(cell)) {
-		killCell(cell);
-	} else {
-		initCell(cell);
-	}
-}
-
-function getCellFromClickEvent(event) {
-	const x = Math.floor(event.clientX / cellSize);
-	const y = Math.floor(event.clientY / cellSize);
-
-	return encodeCell(x, y);
-}
-
-
-
-initCGOL();
-
-function update() {
-	// Any live cell with fewer than two live neighbours dies, as if by underpopulation.
-	// Any live cell with two or three live neighbours lives on to the next generation.
-	// Any live cell with more than three live neighbours dies, as if by overpopulation.
-	livingCells.forEach((cell) => {
-		const livingNeighborCount = getLivingNeighborCount(...decodeCell(cell));
-		if (livingNeighborCount === 2 || livingNeighborCount === 3) {
-			nextGenerationLivingCells.add(cell);
-		}
-	})
-
-	if (livingCells && nextGenerationLivingCells) {
-		livingCells.forEach((cell) => {
-			killCell(cell);
-		})
-		nextGenerationLivingCells.forEach((cell) => {
-			initCell(cell);
-		})
-	}
-
-	livingCells = nextGenerationLivingCells;
-	nextGenerationLivingCells = new Set();
-}
-
-// Animation
-function startAnimating(fps) {
-	fpsInterval = 1000 / fps;
-	then = window.performance.now();
-	startTime = then;
-	animate();
-}
-
-
-function animate(newtime) {
-	if (stop) {
-		return;
-	}
-
-	requestAnimationFrame(animate);
-
-	// calc elapsed time since last loop
-	now = newtime;
-	elapsed = now - then;
-
-	// if enough time has elapsed, draw the next frame
-	if (elapsed > fpsInterval) {
-
-		// Get ready for next frame by setting then=now, but...
-		// Also, adjust for fpsInterval not being multiple of 16.67
-		then = now - (elapsed % fpsInterval);
-
-		update();
-	}
-}
-
-document.addEventListener("click", function (event) {
-	toggleCell(getCellFromClickEvent(event))
+// Canvas click: toggle a cell (only on canvas, not on the button)
+canvas.addEventListener("click", function (event) {
+  const x = Math.floor(event.clientX / cellSize);
+  const y = Math.floor(event.clientY / cellSize);
+  const cell = encodeCell(x, y);
+  sim.toggleCell(cell);
+  drawCell(x, y, !sim.isAlive(cell));
 }, false);
 
-document.addEventListener("keypress", function (event) {
-	if (event.code === 'Space') {
-		stop = !stop;
-		requestAnimationFrame(animate);
-	}
+// Button click: toggle pause/resume without editing a cell
+pauseBtn.addEventListener("click", function (event) {
+  event.stopPropagation();
+  event.preventDefault();
+  togglePause();
 }, false);
 
-window.addEventListener("resize", function (event) {
-	canvas.width = window.innerWidth;
-	canvas.height = window.innerHeight;
-	initCGOL();
+// Space key shortcut: toggle pause/resume
+// Skip if the button is the target (button will handle it via its own click on Space)
+document.addEventListener("keydown", function (event) {
+  if (event.code === 'Space') {
+    if (event.target === pauseBtn) {
+      return; // Button will fire its own click event on Space
+    }
+    event.preventDefault();
+    togglePause();
+  }
 }, false);
 
+// Prevent button from triggering its click when Space is pressed while focused
+// (browsers fire click on keyup for buttons; we prevent the default to avoid double-toggle)
+pauseBtn.addEventListener("keydown", function (event) {
+  if (event.code === 'Space') {
+    event.preventDefault();
+    togglePause();
+  }
+}, false);
+
+// Resize: update canvas dimensions and re-render (no new animation loop)
+window.addEventListener("resize", function () {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  renderBoard();
+}, false);
+
+// Zoom: adjust cell size and re-render (no new animation loop)
 document.addEventListener("wheel", function (event) {
-	cellSize += event.deltaY * -0.01;
-	cellSize = Math.max(cellSize, 10)
-
-	initCGOL();
-}, false)
+  cellSize += event.deltaY * -0.01;
+  cellSize = Math.max(cellSize, 10);
+  renderBoard();
+}, false);
